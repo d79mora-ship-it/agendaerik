@@ -72,7 +72,7 @@ var TasksPage = (function () {
           <h3>${Helpers.escapeHtml(task.title)}</h3>
           <span class="badge badge-${task.priority}">${Helpers.getPriorityLabel(task.priority)}</span>
         </div>
-        ${task.description ? `<div class="task-card-body">${Helpers.escapeHtml(task.description)}</div>` : ''}
+        ${_renderTaskBody(task.description)}
         <div class="task-card-footer">
           <div class="task-card-subject">
             ${subject ? `<span class="subject-dot" style="background: ${subject.color};"></span>${Helpers.escapeHtml(subject.name)}` : ''}
@@ -90,6 +90,43 @@ var TasksPage = (function () {
         </div>
       </div>
     `;
+  }
+
+  function _renderTaskBody(description) {
+    if (!description) return '';
+
+    // Check if it has a serialized checklist
+    if (description.includes('[CHECKLIST:')) {
+      try {
+        const parts = description.split('[CHECKLIST:');
+        const normalDesc = parts[0].trim();
+        const checklistStr = parts[1].substring(0, parts[1].lastIndexOf(']'));
+        const checklist = JSON.parse(checklistStr);
+
+        const total = checklist.length;
+        const complete = checklist.filter(c => c.done).length;
+        const pct = total > 0 ? Math.round((complete / total) * 100) : 0;
+
+        let html = '';
+        if (normalDesc) html += `<div class="task-card-body">${Helpers.escapeHtml(normalDesc)}</div>`;
+        html += `
+          <div style="margin-top: 8px; font-size: 0.75rem; color: var(--text-muted);">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span>Sub-tareas (${complete}/${total})</span>
+              <span>${pct}%</span>
+            </div>
+            <div style="height: 4px; background: var(--bg-surface); border-radius: 2px; overflow: hidden;">
+              <div style="height: 100%; width: ${pct}%; background: var(--color-primary);"></div>
+            </div>
+          </div>
+        `;
+        return html;
+      } catch (e) {
+        return `<div class="task-card-body">${Helpers.escapeHtml(description)}</div>`;
+      }
+    }
+
+    return `<div class="task-card-body">${Helpers.escapeHtml(description)}</div>`;
   }
 
   function _bindCardActions() {
@@ -111,6 +148,15 @@ var TasksPage = (function () {
               Toast.show(`¡Completado! +10 XP 🌟 (Total: \${newXP})`, 'success');
               // Optionally trigger a global event so sidebar updates immediately
               window.dispatchEvent(new Event('xp-updated'));
+
+              // Trigger confetti celebration
+              if (typeof confetti === 'function') {
+                confetti({
+                  particleCount: 100,
+                  spread: 70,
+                  origin: { y: 0.6 }
+                });
+              }
             } else {
               Toast.show(`Tarea movida a "${Helpers.getStatusLabel(nextStatus)}"`, 'success');
             }
@@ -143,9 +189,20 @@ var TasksPage = (function () {
         <input class="form-input" id="task-title" value="${isEdit ? Helpers.escapeHtml(existingTask.title) : ''}" placeholder="Nombre de la tarea" required />
       </div>
       <div class="form-group">
-        <label class="form-label">Descripción</label>
-        <textarea class="form-textarea" id="task-desc" placeholder="Detalles opcionales">${isEdit ? Helpers.escapeHtml(existingTask.description || '') : ''}</textarea>
+        <label class="form-label">Descripción Normal</label>
+        <textarea class="form-textarea" style="min-height: 60px;" id="task-desc" placeholder="Detalles generales">${_getNormalDesc(isEdit, existingTask)}</textarea>
       </div>
+
+      <div class="form-group" style="background: var(--bg-surface); padding: var(--space-sm); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+        <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+          <span>📋 Sub-tareas (Checklist)</span>
+          <button type="button" id="task-add-sub" class="btn btn-outline" style="padding: 2px 8px; font-size: 0.75rem;">+ Añadir paso</button>
+        </label>
+        <div id="task-checklist-container" style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
+          ${_renderEditChecklist(isEdit, existingTask)}
+        </div>
+      </div>
+
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">Asignatura</label>
@@ -186,9 +243,23 @@ var TasksPage = (function () {
         const title = document.getElementById('task-title').value.trim();
         if (!title) { Toast.show('El título es obligatorio', 'error'); return; }
 
+        let finalDesc = document.getElementById('task-desc').value.trim();
+
+        // Serialize checklist
+        const checks = [];
+        document.querySelectorAll('.chk-item-row').forEach(row => {
+          const isDone = row.querySelector('.chk-box').checked;
+          const text = row.querySelector('.chk-text').value.trim();
+          if (text) checks.push({ done: isDone, text });
+        });
+
+        if (checks.length > 0) {
+          finalDesc += `\n[CHECKLIST:${JSON.stringify(checks)}]`;
+        }
+
         const data = {
           title,
-          description: document.getElementById('task-desc').value.trim(),
+          description: finalDesc,
           subject_id: document.getElementById('task-subject').value || null,
           priority: document.getElementById('task-priority').value,
           status: document.getElementById('task-status').value,
@@ -226,6 +297,60 @@ var TasksPage = (function () {
         } : undefined
       }
     );
+
+    // Bind add checklist item
+    setTimeout(() => {
+      const addBtn = document.getElementById('task-add-sub');
+      const container = document.getElementById('task-checklist-container');
+      if (addBtn && container) {
+        addBtn.addEventListener('click', () => {
+          const div = document.createElement('div');
+          div.className = 'flex items-center chk-item-row';
+          div.style.gap = '8px';
+          div.innerHTML = `
+            <input type="checkbox" class="chk-box" style="width: 16px; height: 16px; cursor: pointer;">
+            <input type="text" class="form-input chk-text" placeholder="Nueva sub-tarea..." style="flex: 1; padding: 4px 8px;">
+            <button type="button" class="chk-del" style="background:none; border:none; cursor:pointer; color: var(--color-accent-red);">🚮</button>
+          `;
+          container.appendChild(div);
+
+          div.querySelector('.chk-del').addEventListener('click', () => div.remove());
+          div.querySelector('.chk-text').focus();
+        });
+
+        // Bind delete for existing
+        container.querySelectorAll('.chk-del').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.target.closest('.chk-item-row').remove();
+          });
+        });
+      }
+    }, 100);
+  }
+
+  function _getNormalDesc(isEdit, task) {
+    if (!isEdit || !task.description) return '';
+    if (task.description.includes('[CHECKLIST:')) {
+      return Helpers.escapeHtml(task.description.split('[CHECKLIST:')[0].trim());
+    }
+    return Helpers.escapeHtml(task.description);
+  }
+
+  function _renderEditChecklist(isEdit, task) {
+    if (!isEdit || !task.description || !task.description.includes('[CHECKLIST:')) return '';
+    try {
+      const parts = task.description.split('[CHECKLIST:');
+      const str = parts[1].substring(0, parts[1].lastIndexOf(']'));
+      const arr = JSON.parse(str);
+
+      return arr.map(c => `
+        <div class="flex items-center chk-item-row" style="gap: 8px;">
+          <input type="checkbox" class="chk-box" style="width: 16px; height: 16px; cursor: pointer;" ${c.done ? 'checked' : ''}>
+          <input type="text" class="form-input chk-text" value="${Helpers.escapeHtml(c.text)}" style="flex: 1; padding: 4px 8px; ${c.done ? 'text-decoration: line-through; color: var(--text-muted);' : ''}">
+          <button type="button" class="chk-del" style="background:none; border:none; cursor:pointer; color: var(--color-accent-red);">🚮</button>
+        </div>
+      `).join('');
+    } catch (e) { return ''; }
   }
 
   return { render };

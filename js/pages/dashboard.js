@@ -22,19 +22,20 @@ var DashboardPage = (function () {
     // Clean up
     if (_countdownInterval) { clearInterval(_countdownInterval); _countdownInterval = null; }
 
-    const [tasks, exams, schedules, subjects, profile, gradesBySubject, overallAvg] = await Promise.all([
+    const [tasks, exams, schedules, subjects, profile, gradesBySubject, overallAvg, xp] = await Promise.all([
       DataService.getAllTasks(),
       DataService.getUpcomingExams(),
       DataService.getAllSchedules(),
       DataService.getAllSubjects(),
       DataService.getProfile(),
       DataService.getGradesBySubject(),
-      DataService.getOverallAverage()
+      DataService.getOverallAverage(),
+      DataService.getXP()
     ]);
 
     const subjectProgress = await DataService.getSubjectTaskProgress();
 
-    mainEl.innerHTML = _renderMain(tasks, exams, schedules, subjects, subjectProgress, profile);
+    mainEl.innerHTML = _renderMain(tasks, exams, schedules, subjects, subjectProgress, profile, xp);
     rightEl.innerHTML = _renderRightPanel(profile, schedules, subjects, gradesBySubject, overallAvg);
 
     // Start countdown timers
@@ -63,26 +64,38 @@ var DashboardPage = (function () {
     return `Tienes ${pending.length} tareas pendientes, ¡a por ellas! 🚀`;
   }
 
-  function _renderMain(tasks, exams, schedules, subjects, subjectProgress, profile) {
+  function _renderMain(tasks, exams, schedules, subjects, subjectProgress, profile, xp) {
     const pending = tasks.filter(t => t.status === 'pending');
     const inProgress = tasks.filter(t => t.status === 'in_progress');
     const done = tasks.filter(t => t.status === 'done');
 
+    // XP & Level calculations
+    const level = Math.floor(xp / 100) + 1;
+    const currentLevelXp = xp % 100;
+    const xpPct = currentLevelXp; // Since exactly 100 XP per level
+
     // Today's schedule
     const today = new Date().getDay();
     const todayIdx = today === 0 ? 6 : today - 1; // Monday=0
+
+    // YYYY-MM-DD for checking single dates
+    const d = new Date();
+    const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
     const todaySchedule = schedules
-      .filter(s => s.day_of_week === todayIdx)
+      .filter(s => s.day_of_week === todayIdx || s.date === todayStr)
       .sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
 
     const subjectsMap = {};
     subjects.forEach(s => subjectsMap[s.id] = s);
 
-    // Upcoming tasks (next 7 days)
-    const upcomingTasks = tasks
-      .filter(t => t.status !== 'done' && t.due_date)
-      .sort((a, b) => a.due_date.localeCompare(b.due_date))
-      .slice(0, 5);
+    // Urgent tasks (Due within 48h)
+    const urgentTasks = tasks
+      .filter(t => t.status !== 'done' && t.due_date && Helpers.daysUntil(t.due_date) <= 2)
+      .sort((a, b) => a.due_date.localeCompare(b.due_date));
+
+    // Upcoming Exams (Next 7 days)
+    const upcomingRecentExams = exams.slice(0, 3);
 
     return `
       <div class="page-header">
@@ -91,41 +104,48 @@ var DashboardPage = (function () {
       </div>
 
       <div class="dashboard-grid">
-        <!-- Exam Countdowns -->
+        <!-- XP Progress Bar (Gamification) -->
         <div class="glass-card-static full-width animate-in">
-          <div class="flex justify-between items-center" style="margin-bottom: var(--space-md);">
-            <h3 style="font-size: var(--font-sm); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;">🔥 Contadores de Exámenes</h3>
-            <span style="font-size: var(--font-xs); color: var(--text-muted);">${exams.length} próximos</span>
+          <div class="flex justify-between items-center" style="margin-bottom: var(--space-xs);">
+            <h3 style="font-size: var(--font-sm); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-primary);">🎮 Nivel Actual: ${level}</h3>
+            <span style="font-size: var(--font-xs); color: var(--text-muted); font-weight: bold;">${currentLevelXp} / 100 XP</span>
           </div>
-          ${exams.length > 0 ? `
-            <div class="exam-countdowns-grid" id="exam-countdowns">
-              ${exams.slice(0, 4).map((exam, i) => {
-      const subject = subjectsMap[exam.subject_id];
-      const dateParts = Helpers.formatDateParts(exam.exam_date);
+          <div class="progress-bar-container" style="height: 12px; background: var(--bg-surface); border-radius: 6px; overflow: hidden; border: 1px solid var(--border-subtle);">
+            <div class="progress-bar-fill" style="width: ${xpPct}%; background: linear-gradient(90deg, var(--color-primary), var(--color-accent-blue)); height: 100%; transition: width 1s ease-out; border-radius: 6px;"></div>
+          </div>
+          <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 6px; text-align: right;">Completa más tareas para subir de nivel 🚀</p>
+        </div>
+
+        <!-- Urgent Fires (Fuegos) -->
+        <div class="glass-card-static animate-in stagger-2" style="border-top: 4px solid var(--color-accent-red);">
+          <div class="flex justify-between items-center" style="margin-bottom: var(--space-md);">
+            <h3 style="font-size: var(--font-sm); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-accent-red);">🔥 Próximos Fuegos</h3>
+            <span style="font-size: var(--font-xs); color: var(--text-muted);">${urgentTasks.length} urgencias</span>
+          </div>
+          ${urgentTasks.length > 0 ? `
+            <div style="display: flex; flex-direction: column; gap: var(--space-sm);">
+              ${urgentTasks.slice(0, 4).map(task => {
+      const subject = subjectsMap[task.subject_id];
+      const days = Helpers.daysUntil(task.due_date);
+      const isToday = days <= 0;
       return `
-                  <div class="exam-countdown-card animate-in stagger-${i + 1}">
-                    <div class="exam-cd-header">
-                      <span class="exam-cd-subject" style="color: ${subject ? subject.color : 'var(--color-primary)'};">${subject ? Helpers.escapeHtml(subject.name) : 'General'}</span>
-                      <span class="exam-cd-date">${dateParts.day} ${dateParts.month}</span>
+                  <div style="display: flex; justify-content: space-between; align-items: center; padding: var(--space-xs) 0; border-bottom: 1px dashed var(--border-subtle);">
+                    <div style="display: flex; align-items: center; gap: var(--space-sm); overflow: hidden;">
+                      ${subject ? `<span class="subject-dot" style="background: ${subject.color}; flex-shrink: 0;"></span>` : ''}
+                      <span style="font-size: var(--font-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${Helpers.escapeHtml(task.title)}</span>
                     </div>
-                    <div class="exam-cd-title">${Helpers.escapeHtml(exam.title)}</div>
-                    <div class="exam-cd-timer" data-exam-date="${exam.exam_date}">
-                      <div class="cd-unit"><span class="cd-num" data-cd-days>—</span><span class="cd-lbl">días</span></div>
-                      <span class="cd-sep">:</span>
-                      <div class="cd-unit"><span class="cd-num" data-cd-hours>—</span><span class="cd-lbl">hrs</span></div>
-                      <span class="cd-sep">:</span>
-                      <div class="cd-unit"><span class="cd-num" data-cd-mins>—</span><span class="cd-lbl">min</span></div>
-                    </div>
-                    ${exam.location ? `<div class="exam-cd-location">📍 ${Helpers.escapeHtml(exam.location)}</div>` : ''}
+                    <span class="badge badge-high" style="flex-shrink: 0; font-size: 0.65rem; background: ${isToday ? 'var(--color-accent-red)' : 'var(--color-accent-orange)'}; color: white;">
+                      ${isToday ? '¡HOY!' : 'Mañana'}
+                    </span>
                   </div>
                 `;
     }).join('')}
             </div>
           ` : `
-            <div class="empty-state">
-              <div class="empty-state-icon">🎉</div>
-              <h3>Sin exámenes próximos</h3>
-              <p>¡Disfruta tu tiempo libre!</p>
+            <div class="empty-state" style="padding: var(--space-md);">
+              <div class="empty-state-icon" style="font-size: 2rem; margin-bottom: 8px;">🧊</div>
+              <h3 style="font-size: var(--font-sm);">Todo frío y tranquilo</h3>
+              <p style="font-size: var(--font-xs);">No hay tareas urgentes (48h).</p>
             </div>
           `}
         </div>
@@ -209,34 +229,40 @@ var DashboardPage = (function () {
           `}
         </div>
 
-        <!-- Upcoming Deadlines -->
+        <!-- Exams Countdowns (Moved below) -->
         <div class="glass-card-static full-width animate-in stagger-5">
-          <h3 style="font-size: var(--font-sm); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--space-md);">🔥 Próximas Entregas</h3>
-          ${upcomingTasks.length > 0 ? `
-            <div style="display: flex; flex-direction: column; gap: var(--space-sm);">
-              ${upcomingTasks.map(task => {
-      const subject = subjectsMap[task.subject_id];
-      const days = Helpers.daysUntil(task.due_date);
-      const urgencyColor = days <= 1 ? 'var(--color-accent-red)' : days <= 3 ? 'var(--color-accent-orange)' : 'var(--text-muted)';
+          <div class="flex justify-between items-center" style="margin-bottom: var(--space-md);">
+            <h3 style="font-size: var(--font-sm); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;">⏳ Contadores de Exámenes</h3>
+            <span style="font-size: var(--font-xs); color: var(--text-muted);">${exams.length} próximos</span>
+          </div>
+          ${exams.length > 0 ? `
+            <div class="exam-countdowns-grid" id="exam-countdowns">
+              ${exams.slice(0, 4).map((exam, i) => {
+      const subject = subjectsMap[exam.subject_id];
+      const dateParts = Helpers.formatDateParts(exam.exam_date);
       return `
-                  <div style="display: flex; justify-content: space-between; align-items: center; padding: var(--space-sm) 0; border-bottom: 1px solid var(--border-subtle);">
-                    <div style="display: flex; align-items: center; gap: var(--space-sm);">
-                      ${subject ? `<span class="subject-dot" style="background: ${subject.color};"></span>` : ''}
-                      <span style="font-size: var(--font-sm);">${Helpers.escapeHtml(task.title)}</span>
-                      <span class="badge badge-${task.priority}" style="font-size: 0.6rem;">${Helpers.getPriorityLabel(task.priority)}</span>
+                  <div class="exam-countdown-card animate-in stagger-${i + 1}">
+                    <div class="exam-cd-header">
+                      <span class="exam-cd-subject" style="color: ${subject ? subject.color : 'var(--color-primary)'};">${subject ? Helpers.escapeHtml(subject.name) : 'General'}</span>
+                      <span class="exam-cd-date">${dateParts.day} ${dateParts.month}</span>
                     </div>
-                    <span style="font-size: var(--font-sm); font-weight: 700; color: ${urgencyColor};">
-                      ${days <= 0 ? '¡HOY!' : days === 1 ? 'Mañana' : days + ' días'}
-                    </span>
+                    <div class="exam-cd-title">${Helpers.escapeHtml(exam.title)}</div>
+                    <div class="exam-cd-timer" data-exam-date="${exam.exam_date}">
+                      <div class="cd-unit"><span class="cd-num" data-cd-days>—</span><span class="cd-lbl">días</span></div>
+                      <span class="cd-sep">:</span>
+                      <div class="cd-unit"><span class="cd-num" data-cd-hours>—</span><span class="cd-lbl">hrs</span></div>
+                      <span class="cd-sep">:</span>
+                      <div class="cd-unit"><span class="cd-num" data-cd-mins>—</span><span class="cd-lbl">min</span></div>
+                    </div>
+                    ${exam.location ? `<div class="exam-cd-location">📍 ${Helpers.escapeHtml(exam.location)}</div>` : ''}
                   </div>
                 `;
     }).join('')}
             </div>
           ` : `
-            <div class="empty-state">
-              <div class="empty-state-icon">🎊</div>
-              <h3>Todo al día</h3>
-              <p>No tienes entregas pendientes</p>
+            <div class="empty-state" style="padding: var(--space-md);">
+              <div class="empty-state-icon" style="font-size: 2rem; margin-bottom: 8px;">🎉</div>
+              <h3 style="font-size: var(--font-sm);">Sin exámenes a la vista</h3>
             </div>
           `}
         </div>
