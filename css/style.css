@@ -2083,7 +2083,7 @@ a:hover {
   /* Main content: full width with bottom padding for nav bar */
   .main-content {
     padding: var(--space-md);
-    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px));
     max-height: none;
     overflow-y: auto;
     min-height: 100vh;
