@@ -81,15 +81,19 @@ var TasksPage = (function () {
             ${daysLeft <= 0 ? '¡Hoy!' : daysLeft + 'd'}
           </span>` : ''}
         </div>
-        <div class="task-actions" style="margin-top: var(--space-sm);">
-          ${task.status !== 'pending' ? `
-            <button class="task-action-btn" data-action="revert" data-id="${task.id}" title="Retroceder estado">←</button>
-          ` : ''}
-          ${task.status !== 'done' ? `
-            <button class="task-action-btn" data-action="advance" data-id="${task.id}" title="Avanzar estado">→</button>
-          ` : ''}
-          <button class="task-action-btn" data-action="edit" data-id="${task.id}" title="Editar">✏️</button>
-          <button class="task-action-btn" data-action="delete" data-id="${task.id}" title="Eliminar">🗑️</button>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: var(--space-md); padding-top: var(--space-sm); border-top: 1px dashed var(--border-subtle);">
+          <div style="display: flex; gap: 8px;">
+            ${task.status !== 'pending' ? `
+              <button class="btn btn-outline btn-sm task-action-btn" data-action="revert" data-id="${task.id}" title="Retroceder estado" style="padding: 2px 8px; font-size: 1rem; line-height: 1;">⬅️</button>
+            ` : `<div style="width: 38px;"></div>`}
+            ${task.status !== 'done' ? `
+              <button class="btn btn-outline btn-sm task-action-btn" data-action="advance" data-id="${task.id}" title="Avanzar estado" style="padding: 2px 8px; font-size: 1rem; line-height: 1;">➡️</button>
+            ` : ''}
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-ghost btn-sm task-action-btn" data-action="edit" data-id="${task.id}">✏️ Editar</button>
+            <button class="btn btn-danger btn-sm task-action-btn" data-action="delete" data-id="${task.id}">🗑️</button>
+          </div>
         </div>
       </div>
     `;

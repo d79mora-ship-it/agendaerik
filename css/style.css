@@ -1171,32 +1171,8 @@ a:hover {
 .task-actions {
   display: flex;
   gap: var(--space-xs);
-  opacity: 0;
-  transition: opacity var(--transition-fast);
-}
-
-.task-card:hover .task-actions {
   opacity: 1;
-}
-
-.task-action-btn {
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-sm);
-  border: none;
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: var(--font-sm);
-  transition: all var(--transition-fast);
-}
-
-.task-action-btn:hover {
-  background: rgba(0, 212, 255, 0.12);
-  color: var(--color-primary);
+  transition: opacity var(--transition-fast);
 }
 
 /* ── Subject Cards ── */
