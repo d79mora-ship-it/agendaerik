@@ -92,7 +92,10 @@ var SchedulePage = (function () {
           <button class="btn btn-ghost btn-sm" id="next-week-btn">Siguiente ▶</button>
         </div>
 
-        <button class="btn btn-primary" id="add-schedule-btn">+ Añadir Clase/Evento</button>
+        <div class="flex items-center gap-2" style="display:flex; gap: 8px; align-items: center;">
+          <button class="btn btn-secondary" id="download-schedule-btn" style="background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border-subtle);" title="Guardar como imagen">📷 Descargar</button>
+          <button class="btn btn-primary" id="add-schedule-btn">+ Añadir Clase/Evento</button>
+        </div>
       </div>
 
       <div class="glass-card-static animate-in" style="overflow-x: auto; padding: 0; background: var(--bg-card); border: 1px solid var(--border-subtle);">
@@ -289,6 +292,13 @@ var SchedulePage = (function () {
         <label class="form-label">Aula</label>
         <input class="form-input" id="sch-room" value="${isEdit ? Helpers.escapeHtml(existing.room || '') : ''}" placeholder="Ej. Lab-2" />
       </div>
+
+      ${isEdit ? `
+      <div class="form-group" style="margin-top: var(--space-md); text-align: center;">
+        <button type="button" class="btn btn-secondary btn-block" id="sch-share-btn" style="background: var(--bg-surface); color: var(--color-primary); border: 1px solid var(--border-subtle);">
+          📡 Copiar Link para Compartir Evento
+        </button>
+      </div>` : ''}
     `;
 
     Modal.open(
@@ -341,14 +351,14 @@ var SchedulePage = (function () {
           Toast.show('Evento actualizado', 'success');
         } else {
           await DataService.createSchedule(data);
-          Toast.show('Evento añadido', 'success');
+          Toast.show('Evento creado', 'success');
         }
 
         Modal.close();
         await _refresh();
       },
       {
-        submitLabel: isEdit ? 'Actualizar' : 'Añadir',
+        submitLabel: isEdit ? 'Guardar' : 'Crear Evento',
         showDelete: isEdit,
         onDelete: isEdit ? async () => {
           await DataService.deleteSchedule(existing.id);
@@ -357,6 +367,39 @@ var SchedulePage = (function () {
         } : undefined
       }
     );
+
+    // Attach Share Event Listeners if editing
+    if (isEdit) {
+      setTimeout(() => { // Wait for modal to render
+        const shareBtn = document.getElementById('sch-share-btn');
+        if (shareBtn) {
+          shareBtn.addEventListener('click', () => {
+            const subjectName = existing.subject_id
+              ? (subjects.find(s => s.id === existing.subject_id)?.name || '')
+              : existing.custom_name;
+
+            const shareData = {
+              c: subjectName,
+              r: existing.room || '',
+              s: existing.start_time,
+              e: existing.end_time,
+              dw: existing.day_of_week !== null && existing.day_of_week !== undefined ? existing.day_of_week : -1,
+              d: existing.date || ''
+            };
+
+            // Encode safely as base64
+            const encoded = btoa(encodeURIComponent(JSON.stringify(shareData)));
+            const shareUrl = `${window.location.origin}${window.location.pathname}?share=${encoded}#schedule`;
+
+            navigator.clipboard.writeText(shareUrl).then(() => {
+              Toast.show('Link copiado al portapapeles', 'success');
+            }).catch(() => {
+              prompt('Copia este enlace:', shareUrl);
+            });
+          });
+        }
+      }, 50);
+    }
 
     // Setup interactive fields
     setTimeout(() => {
@@ -393,5 +436,50 @@ var SchedulePage = (function () {
     }, 100);
   }
 
-  return { render };
+  // --- Exposed method for Shared Links ---
+  async function _openModalShared(sharedData) {
+    if (!sharedData) return;
+
+    const preDay = sharedData.dw >= 0 ? sharedData.dw : undefined;
+    const preTime = sharedData.s;
+    const preDateStr = sharedData.d || '';
+
+    // Open modal 
+    await _openModal(null, preDay, preTime, preDateStr);
+
+    // Overwrite the inputs with the shared data after brief delay for render
+    setTimeout(() => {
+      const typeRadios = document.querySelectorAll('input[name="sch-type"]');
+      if (sharedData.d) {
+        const singleRadio = document.querySelector('input[name="sch-type"][value="single"]');
+        if (singleRadio) singleRadio.click();
+        document.getElementById('sch-date').value = sharedData.d;
+      } else if (sharedData.dw >= 0) {
+        const recurrRadio = document.querySelector('input[name="sch-type"][value="recurring"]');
+        if (recurrRadio) recurrRadio.click();
+        document.getElementById('sch-day').value = sharedData.dw;
+      }
+
+      document.getElementById('sch-subject').value = ""; // Force Custom Name
+      const customGrp = document.getElementById('sch-custom-name-group');
+      if (customGrp) customGrp.style.display = 'block';
+
+      document.getElementById('sch-custom-name').value = sharedData.c;
+      document.getElementById('sch-room').value = sharedData.r;
+
+      if (sharedData.s) {
+        const [sh, sm] = sharedData.s.split(':');
+        document.getElementById('sch-start-h').value = sh;
+        document.getElementById('sch-start-m').value = sm;
+      }
+
+      if (sharedData.e) {
+        const [eh, em] = sharedData.e.split(':');
+        document.getElementById('sch-end-h').value = eh;
+        document.getElementById('sch-end-m').value = em;
+      }
+    }, 200);
+  }
+
+  return { render, _openModalShared };
 })();

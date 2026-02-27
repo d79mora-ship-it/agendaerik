@@ -12,6 +12,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
+  <script>
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+  </script>
 </head>
 
 <body>
@@ -41,6 +45,8 @@
   <!-- Scripts -->
   <!-- Supabase CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- html2canvas for Schedule Download -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
   <script src="js/data/demoData.js"></script>
   <script src="js/utils/helpers.js"></script>

@@ -238,6 +238,28 @@ var DataService = (function () {
     async function updateGrade(id, updates) { return _update('grades', id, updates); }
     async function deleteGrade(id) { return _delete('grades', id); }
 
+    /* ── Pomodoro Sessions ── */
+    async function getPomodoroSessions() { return _getAll('pomodoro_sessions'); }
+    async function createPomodoroSession(item) { return _create('pomodoro_sessions', item); }
+
+    /* ── Gamification (XP System) ── */
+    async function getXP() {
+        const user = _getUser();
+        if (!user) return 0;
+        const key = `agenda_xp_${user.id}`;
+        return parseInt(localStorage.getItem(key) || '0', 10);
+    }
+
+    async function addXP(amount) {
+        const user = _getUser();
+        if (!user) return 0;
+        const key = `agenda_xp_${user.id}`;
+        let current = parseInt(localStorage.getItem(key) || '0', 10);
+        current += amount;
+        localStorage.setItem(key, current);
+        return current;
+    }
+
     /* ── Notes ── */
     async function getAllNotes() { return _getAll('notes'); }
     async function createNote(note) { return _create('notes', note); }
@@ -312,6 +334,8 @@ var DataService = (function () {
         updateNote,
         deleteNote,
         getActiveLevel,
-        setActiveLevel
+        setActiveLevel,
+        getXP,
+        addXP
     };
 })();

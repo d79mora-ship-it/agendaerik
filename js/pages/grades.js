@@ -28,7 +28,10 @@ var GradesPage = (function () {
             </span>
           </p>
         </div>
-        <button class="btn btn-primary" id="add-grade-btn">+ Nueva Nota</button>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-secondary" id="open-calc-btn" style="background: var(--bg-surface); color: var(--color-primary); border: 1px solid var(--border-subtle);">🧮 Calculadora</button>
+          <button class="btn btn-primary" id="add-grade-btn">+ Nueva Nota</button>
+        </div>
       </div>
 
       <div class="grades-container">
@@ -68,6 +71,7 @@ var GradesPage = (function () {
     `;
 
     document.getElementById('add-grade-btn').addEventListener('click', () => _openModal());
+    document.getElementById('open-calc-btn').addEventListener('click', _openCalculatorModal);
 
     _mainEl.querySelectorAll('[data-action="edit-grade"]').forEach(btn => {
       btn.addEventListener('click', async () => {
@@ -165,6 +169,72 @@ var GradesPage = (function () {
           await _refresh();
         } : undefined
       }
+    );
+  }
+
+  function _openCalculatorModal() {
+    const formHtml = `
+      <div style="background: var(--color-primary-light); padding: var(--space-md); border-radius: var(--radius-sm); margin-bottom: var(--space-md);">
+        <p style="font-size: var(--font-sm); color: var(--color-primary-dark); margin: 0;">¿Cuánto necesitas sacar en el examen final para aprobar o llegar a tu nota objetivo? Descúbrelo aquí.</p>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nota acumulada actual (sobre 10)</label>
+        <input class="form-input" type="number" id="calc-current" min="0" max="10" step="0.1" placeholder="Ej. 6.5" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Valor del examen final (%)</label>
+        <input class="form-input" type="number" id="calc-weight" min="1" max="100" placeholder="Ej. 40" required />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nota Objetivo (sobre 10)</label>
+        <input class="form-input" type="number" id="calc-target" min="0" max="10" step="0.1" value="5.0" placeholder="Ej. 5.0" required />
+      </div>
+      
+      <div id="calc-result" style="margin-top: var(--space-lg); padding: var(--space-md); border-radius: var(--radius-sm); display: none; text-align: center; font-weight: bold; font-size: var(--font-lg);"></div>
+    `;
+
+    Modal.open(
+      'Calculadora de Salvavidas 🧮',
+      formHtml,
+      () => {
+        const current = parseFloat(document.getElementById('calc-current').value);
+        const weightPct = parseFloat(document.getElementById('calc-weight').value);
+        const target = parseFloat(document.getElementById('calc-target').value);
+
+        if (isNaN(current) || isNaN(weightPct) || isNaN(target)) {
+          Toast.show('Por favor, rellena todos los campos con números válidos.', 'error');
+          return false; // Prevent modal from closing automatically
+        }
+
+        const currentWeight = (100 - weightPct) / 100;
+        const finalWeight = weightPct / 100;
+
+        // Equation: (current * currentWeight) + (X * finalWeight) = target
+        // X = (target - (current * currentWeight)) / finalWeight
+
+        const requiredScore = (target - (current * currentWeight)) / finalWeight;
+        const resultEl = document.getElementById('calc-result');
+
+        resultEl.style.display = 'block';
+
+        if (requiredScore > 10) {
+          resultEl.style.background = '#fce8e6';
+          resultEl.style.color = '#c5221f';
+          resultEl.innerHTML = `Necesitas un ${requiredScore.toFixed(2)}.<br><span style="font-size: var(--font-sm); font-weight: normal;">¡Matemáticamente imposible a menos que haya puntos extra! 💀</span>`;
+        } else if (requiredScore <= 0) {
+          resultEl.style.background = '#e6f4ea';
+          resultEl.style.color = '#137333';
+          resultEl.innerHTML = `Necesitas un ${requiredScore.toFixed(2)}.<br><span style="font-size: var(--font-sm); font-weight: normal;">¡Ya has logrado tu objetivo aunque saques un 0! 🎉</span>`;
+        } else {
+          resultEl.style.background = '#e8f0fe';
+          resultEl.style.color = '#1a73e8';
+          resultEl.innerHTML = `Necesitas sacar un <span style="font-size: var(--font-xl);">${requiredScore.toFixed(2)}</span>`;
+        }
+
+        // Return false to keep modal open to see the result
+        return false;
+      },
+      { submitLabel: 'Calcular' }
     );
   }
 

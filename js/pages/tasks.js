@@ -105,7 +105,15 @@ var TasksPage = (function () {
           if (task) {
             const nextStatus = task.status === 'pending' ? 'in_progress' : 'done';
             await DataService.updateTask(id, { status: nextStatus });
-            Toast.show(`Tarea movida a "${Helpers.getStatusLabel(nextStatus)}"`, 'success');
+
+            if (nextStatus === 'done') {
+              const newXP = await DataService.addXP(10);
+              Toast.show(`¡Completado! +10 XP 🌟 (Total: \${newXP})`, 'success');
+              // Optionally trigger a global event so sidebar updates immediately
+              window.dispatchEvent(new Event('xp-updated'));
+            } else {
+              Toast.show(`Tarea movida a "${Helpers.getStatusLabel(nextStatus)}"`, 'success');
+            }
             await _refresh();
           }
         } else if (action === 'edit') {
@@ -189,9 +197,19 @@ var TasksPage = (function () {
 
         if (isEdit) {
           await DataService.updateTask(existingTask.id, data);
-          Toast.show('Tarea actualizada', 'success');
+          if (existingTask.status !== 'done' && data.status === 'done') {
+            const newXP = await DataService.addXP(10);
+            Toast.show(`¡Completado! +10 XP 🌟 (Total: \${newXP})`, 'success');
+            window.dispatchEvent(new Event('xp-updated'));
+          } else {
+            Toast.show('Tarea actualizada', 'success');
+          }
         } else {
           await DataService.createTask(data);
+          if (data.status === 'done') {
+            await DataService.addXP(10);
+            window.dispatchEvent(new Event('xp-updated'));
+          }
           Toast.show('Tarea creada', 'success');
         }
 

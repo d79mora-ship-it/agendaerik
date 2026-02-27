@@ -76,6 +76,36 @@ var App = (function () {
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') Modal.close();
         });
+
+        // Handle Shared Event Links
+        const urlParams = new URLSearchParams(window.location.search);
+        const shareDataRaw = urlParams.get('share');
+        if (shareDataRaw) {
+            try {
+                const decoded = JSON.parse(decodeURIComponent(atob(shareDataRaw)));
+                if (decoded && decoded.c) {
+                    Toast.show('Evento compartido recibido', 'info');
+                    // Navigate to schedule page to ensure DataService has subjects ready
+                    if (_currentPage !== 'schedule') navigateTo('schedule');
+
+                    // Small timeout to allow SchedulePage to render and fetch subjects/slots
+                    setTimeout(() => {
+                        if (typeof SchedulePage !== 'undefined' && SchedulePage._openModalShared) {
+                            SchedulePage._openModalShared(decoded);
+                        } else {
+                            // Fallback if the method isn't explicitly exposed, although we will expose it next
+                            alert(`Recibido: ${decoded.c} de ${decoded.s} a ${decoded.e}`);
+                        }
+                    }, 500);
+                }
+            } catch (e) {
+                console.error("Link de compartir inválido", e);
+                Toast.show('Link de evento no válido', 'error');
+            }
+
+            // Clean up URL so it doesn't trigger again on refresh
+            window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+        }
     }
 
     /**
