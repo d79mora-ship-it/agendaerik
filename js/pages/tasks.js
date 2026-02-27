@@ -82,6 +82,9 @@ var TasksPage = (function () {
           </span>` : ''}
         </div>
         <div class="task-actions" style="margin-top: var(--space-sm);">
+          ${task.status !== 'pending' ? `
+            <button class="task-action-btn" data-action="revert" data-id="${task.id}" title="Retroceder estado">←</button>
+          ` : ''}
           ${task.status !== 'done' ? `
             <button class="task-action-btn" data-action="advance" data-id="${task.id}" title="Avanzar estado">→</button>
           ` : ''}
@@ -160,6 +163,18 @@ var TasksPage = (function () {
             } else {
               Toast.show(`Tarea movida a "${Helpers.getStatusLabel(nextStatus)}"`, 'success');
             }
+            await _refresh();
+          }
+        } else if (action === 'revert') {
+          const tasks = await DataService.getAllTasks();
+          const task = tasks.find(t => t.id === id);
+          if (task) {
+            const prevStatus = task.status === 'done' ? 'in_progress' : 'pending';
+            await DataService.updateTask(id, { status: prevStatus });
+
+            // Si la devolvemos desde 'done', quizás deberíamos quitarle XP, 
+            // pero para no estropear la gamificación positiva, lo dejamos o mostramos mensaje simple
+            Toast.show(`Tarea devuelta a "${Helpers.getStatusLabel(prevStatus)}"`, 'info');
             await _refresh();
           }
         } else if (action === 'edit') {
