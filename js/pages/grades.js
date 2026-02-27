@@ -112,8 +112,13 @@ var GradesPage = (function () {
           <input class="form-input" type="number" id="grade-score" min="0" max="10" step="0.1" value="${isEdit ? existing.score : ''}" placeholder="8.5" required />
         </div>
         <div class="form-group">
-          <label class="form-label">Peso</label>
-          <input class="form-input" type="number" id="grade-weight" min="0.1" max="5" step="0.1" value="${isEdit ? existing.weight : '1.0'}" />
+          <label class="form-label">Importancia</label>
+          <select class="form-select" id="grade-weight">
+            <option value="1.0" ${!isEdit || existing.weight <= 1.0 ? 'selected' : ''}>Normal</option>
+            <option value="1.5" ${isEdit && existing.weight > 1.0 && existing.weight <= 1.5 ? 'selected' : ''}>Media</option>
+            <option value="2.0" ${isEdit && existing.weight > 1.5 && existing.weight <= 2.0 ? 'selected' : ''}>Alta</option>
+            <option value="3.0" ${isEdit && existing.weight > 2.0 ? 'selected' : ''}>Muy alta</option>
+          </select>
         </div>
       </div>
       <div class="form-group">
