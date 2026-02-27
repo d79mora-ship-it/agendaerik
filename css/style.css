@@ -2005,54 +2005,74 @@ a:hover {
     right: 0;
     top: auto;
     height: auto;
+    min-height: 56px;
     width: 100%;
     flex-direction: row;
     justify-content: space-around;
     align-items: center;
-    padding: var(--space-xs) 0 calc(var(--space-xs) + env(safe-area-inset-bottom, 0px)) 0;
+    padding: 6px 0 calc(6px + env(safe-area-inset-bottom, 0px)) 0;
     gap: 0;
     border-right: none;
     border-top: 1px solid var(--border-subtle);
     background: var(--bg-card);
-    z-index: 100;
-    overflow-x: auto;
-    overflow-y: hidden;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    z-index: 200;
   }
 
-  .sidebar-logo {
-    width: 34px;
-    height: 34px;
-    font-size: var(--font-xs);
-    margin-bottom: 0;
-    flex-shrink: 0;
+  /* Hide desktop-only sidebar elements */
+  .sidebar-logo,
+  .level-selector-wrapper,
+  #sidebar-xp-container,
+  #sidebar-theme-toggle,
+  .sidebar-logout,
+  .sidebar-link .nav-label,
+  .sidebar-link .tooltip {
+    display: none !important;
   }
 
   .sidebar-nav {
     flex-direction: row;
-    gap: 2px;
-    flex: unset;
+    gap: 0;
+    flex: 1;
     align-items: center;
+    justify-content: space-around;
+    width: 100%;
   }
 
   .sidebar-link {
-    width: 40px;
-    height: 40px;
-    font-size: 1.1rem;
+    flex: 1;
+    width: auto;
+    min-width: 40px;
+    min-height: 48px;
+    height: auto;
+    font-size: 1.3rem;
     flex-shrink: 0;
+    border-radius: 0;
+    padding: 4px 0;
+  }
+
+  /* Active indicator — top bar */
+  .sidebar-link.active {
+    color: var(--color-primary);
+    background: transparent;
+    position: relative;
+  }
+
+  .sidebar-link.active::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 28px;
+    height: 3px;
+    background: var(--color-primary);
+    border-radius: 0 0 4px 4px;
   }
 
   .sidebar-link.active::before {
     display: none;
-  }
-
-  .sidebar-link .tooltip {
-    display: none;
-  }
-
-  /* Sidebar logout button */
-  .sidebar-logout {
-    margin-top: 0 !important;
-    flex-shrink: 0;
   }
 
   /* Right panel: hidden on mobile */
@@ -2060,15 +2080,16 @@ a:hover {
     display: none;
   }
 
-  /* Main content: full width with bottom padding for nav */
+  /* Main content: full width with bottom padding for nav bar */
   .main-content {
     padding: var(--space-md);
-    padding-bottom: 80px;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
     max-height: none;
     overflow-y: auto;
-    min-height: calc(100vh - 56px);
-    min-height: calc(100dvh - 56px);
+    min-height: 100vh;
+    min-height: 100dvh;
     width: 100%;
+    box-sizing: border-box;
   }
 
   /* ── Page Headers ── */
@@ -2122,6 +2143,34 @@ a:hover {
   .subjects-grid {
     grid-template-columns: 1fr !important;
   }
+
+  /* ── Ensure no horizontal overflow ── */
+  .main-content>* {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  /* ── Page header: stack buttons below heading on mobile ── */
+  .page-header {
+    gap: var(--space-sm);
+  }
+
+  .page-header>div:last-child {
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    width: 100%;
+  }
+
+  /* ── Better tap targets for all buttons ── */
+  .btn {
+    min-height: 44px;
+    padding: 0 var(--space-md);
+  }
+
+  .btn-sm {
+    min-height: 36px;
+  }
+
 
   /* ── Schedule table ── */
   .schedule-table-wrapper,
@@ -2199,7 +2248,8 @@ a:hover {
 
   /* ── Form elements ── */
   .form-row {
-    flex-direction: column;
+    grid-template-columns: 1fr !important;
+    /* stack form rows on mobile */
     gap: var(--space-sm);
   }
 
@@ -2306,82 +2356,6 @@ a:hover {
   .filter-chip {
     font-size: var(--font-xs);
     padding: 4px 10px;
-  }
-
-  /* ── App Shell ── */
-  .app-shell {
-    grid-template-columns: 1fr !important;
-    padding-bottom: 70px;
-    /* Space for bottom nav */
-  }
-
-  /* ── Bottom Navigation Bar (replaces Sidebar) ── */
-  .sidebar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 65px;
-    flex-direction: row;
-    justify-content: space-evenly;
-    align-items: center;
-    padding: 0;
-    border-right: none;
-    border-top: 1px solid var(--border-neon);
-    background: rgba(var(--bg-sidebar-rgb, 15, 15, 15), 0.85);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    z-index: 1000;
-  }
-
-  .sidebar-logo,
-  .level-selector-wrapper,
-  .sidebar-link span.sr-only,
-  .tooltip,
-  .nav-label,
-  #sidebar-xp-container,
-  #sidebar-theme-toggle {
-    display: none !important;
-  }
-
-  .sidebar-nav {
-    flex-direction: row;
-    gap: 0;
-    width: 100%;
-    justify-content: space-evenly;
-  }
-
-  .sidebar-link {
-    width: auto;
-    flex: 1;
-    height: 100%;
-    min-height: 65px;
-    border-radius: 0;
-    padding: 0;
-  }
-
-  .sidebar-link.active {
-    background: transparent;
-    color: var(--color-primary);
-    position: relative;
-  }
-
-  .sidebar-link.active::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 30px;
-    height: 3px;
-    background: var(--color-primary);
-    border-radius: 0 0 4px 4px;
-    box-shadow: 0 2px 10px var(--color-primary);
-  }
-
-  .main-content {
-    padding: var(--space-md);
-    padding-top: var(--space-md);
   }
 }
 
